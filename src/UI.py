@@ -1,17 +1,16 @@
 import gradio as gr
 import fetch_threads as core
 import summarize_threads as core2
+import rag_prep as core3
 import re
 
-def echo(message, history):
-    return "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum."
-
 CSS ="""
-#component-92 { height: 600px !important; }
+#component-0 > div:nth-child(11) { height: 600px !important; }
 """
 
-def display_text_list():
+def display_text_list(progress=gr.Progress()):
     text_list = core2.summarize_tweets()
+    progress(0.05)
     res=""
     for i, item in enumerate(text_list):
         title = f"<h3>{i+1}. {item['title']}</h3>"
@@ -21,7 +20,7 @@ def display_text_list():
         res+=summary
     
     print(res)
-    return [res, gr.Markdown(visible=True)]
+    return [res, gr.Markdown(visible=True),]
 
 
 with gr.Blocks(css=CSS) as demo:
@@ -48,6 +47,6 @@ with gr.Blocks(css=CSS) as demo:
     gr.Markdown("\n\n\n\n\n\n")
     gr.Markdown("\n\n\n\n\n\n")
     
-    gr.ChatInterface(fn=echo, type="messages", examples=["hello", "hola", "merhaba"], title="Reddit Bot")
+    gr.ChatInterface(fn=core3.ask_questions, type="messages", examples=["hello", "hola", "merhaba"], title="Chat with Redit Threads")
 
 demo.launch()

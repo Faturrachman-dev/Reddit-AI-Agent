@@ -16,6 +16,7 @@ import json
 import tweepy
 import json
 import gradio as gr
+import re
 
 # RAG
 from langchain_community.document_loaders import TextLoader
@@ -34,14 +35,14 @@ def summarize_tweets():
 
     llm = ChatGroq(model="llama3-70b-8192")
 
-    map_prompt_template = """You are provided with twitter thread comments. Most of the comments are discussions related to problems and solutions users are facing. Creat a concise summary of all the solutions and suggestions and key points mentioned in the discussions. \\n ===Comments=== \\n {text}"""
+    map_prompt_template = """You are provided with twitter thread comments. Most of the comments are discussions related to problems and solutions users are facing. Creat a concise summary of all the solutions and suggestions and key points mentioned in the discussions and dont return in markdown format it shoudl contain only letters no special characters no new lines direct return summary in a paragraph. \\n ===Comments=== \\n {text}"""
     map_prompt = PromptTemplate(template=map_prompt_template, input_variables=["text"])
 
     combine_prompt_template = """
     The following is a set of summaries:
     {text}
     Take these and distill it into a final, consolidated summary
-    of the main themes.
+    of the main themes and dont return in markdown format it should contain only letters no special characters no new lines direct return summary in a paragraph.
     """
     combine_prompt = PromptTemplate(template=combine_prompt_template, input_variables=["text"])
 
@@ -68,16 +69,4 @@ def summarize_tweets():
     with open("summary.txt", "w", encoding="utf-8") as summary_file:
         json.dump(res, summary_file)
 
-    return []
-
-def display_text_list():
-    text_list = summarize_tweets()
-    updates=[]
-    for i, item in enumerate(text_list):
-        title = "### " + item['title']
-        summary = "<b>Summary</b> - " + item['summary']
-        updates.append(gr.Markdown(value=title))
-        updates.append(gr.Markdown(value="---"))
-        updates.append(gr.Markdown(value=summary))
-
-    return updates
+    return final

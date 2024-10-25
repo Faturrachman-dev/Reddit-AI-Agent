@@ -1,6 +1,7 @@
 import gradio as gr
 import fetch_threads as core
 import summarize_threads as core2
+import re
 
 def echo(message, history):
     return "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum."
@@ -8,6 +9,20 @@ def echo(message, history):
 CSS ="""
 #component-92 { height: 600px !important; }
 """
+
+def display_text_list():
+    text_list = core2.summarize_tweets()
+    res=""
+    for i, item in enumerate(text_list):
+        title = f"<h3>{i+1}. {item['title']}</h3>"
+        new_sum = re.sub(r'\n', ' ', item['summary'])
+        summary = f"<p>{new_sum}</p>"
+        res+=title
+        res+=summary
+    
+    print(res)
+    return [res, gr.Markdown(visible=True)]
+
 
 with gr.Blocks(css=CSS) as demo:
     gr.Markdown("<h1><center>Reddit Agent</center></h1>")
@@ -27,24 +42,9 @@ with gr.Blocks(css=CSS) as demo:
 
     gr.Markdown("\n\n\n\n\n\n")
     gr.Markdown("\n\n\n\n\n\n")
-    gr.Markdown("<h1>Reddit Summarized Threads</h1>")
-    textboxes = gr.Column()
-
-    def update_textboxes():
-        textboxes = core2.display_text_list()
-        return gr.update(components=textboxes)
-    
-    summarize_tweet_btn.click(core2.display_text_list, inputs=[], outputs=textboxes)
-
-    gr.Markdown("### Tweet 1 Lorem Ipsum")
-    gr.Markdown("---")
-    gr.Markdown("<b>Summary</b> - Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.")
-    gr.Markdown("### Tweet 2 Lorem Ipsum")
-    gr.Markdown("---")
-    gr.Markdown("<b>Summary</b> - Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.")
-    gr.Markdown("### Tweet 3 Lorem Ipsum")
-    gr.Markdown("---")
-    gr.Markdown("<b>Summary</b> - Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.")
+    head = gr.Markdown("<h1>Reddit Summarized Threads</h1>", visible=False)
+    outp = gr.Markdown()
+    summarize_tweet_btn.click(display_text_list, inputs=[], outputs=[outp,head])
     gr.Markdown("\n\n\n\n\n\n")
     gr.Markdown("\n\n\n\n\n\n")
     

@@ -28,19 +28,24 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 
-llm = ChatGroq(model="llama3-70b-8192")
-loader = TextLoader('summary.txt')
+# llm = ChatGroq(model="llama3-70b-8192")
+llm = ChatGroq(model="llama3-8b-8192")
+loader = TextLoader('tweet_data.txt')
 documents = loader.load()
-text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
 docs = text_splitter.split_documents(documents)
+print("Len of RAG Docs: ",len(docs))
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-docs_text = [doc.page_content for doc in docs]
-doc_embeddings = embeddings.embed_documents(docs_text)
+# docs_text = [doc.page_content for doc in docs]
+# doc_embeddings = embeddings.embed_documents(docs_text)
 vectorstore = FAISS.from_documents(docs, embeddings)
+vectorstore.save_local("RAG_index")
+
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
+
 RAG_PROMPT = """
-You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know.
+You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question.
      
 Question: {query} 
 
@@ -52,7 +57,8 @@ prompt = PromptTemplate(template=RAG_PROMPT, input_variables=["query","context"]
 
 def ask_questions(query,history):
 
-    results = vectorstore.similarity_search(query,k=3)
+    results = vectorstore.similarity_search(query,k=5)
+    print("RAG Retrived: ", results)
     context = format_docs(results)
     chain = prompt | llm | StrOutputParser()
     results = chain.invoke({'query':query,'context':context})

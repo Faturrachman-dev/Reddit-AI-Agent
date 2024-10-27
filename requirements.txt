@@ -1,4 +1,12 @@
 langchain
 langchain-community
 langchain-groq
+langchain-huggingface
+langchain-text-splitters
 langsmith
+faiss-cpu
+gradio
+praw
+sentence-transformers
+torch
+transformers

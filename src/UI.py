@@ -22,7 +22,7 @@ def display_text_list():
     return [formatted_data, gr.TextArea(visible=False), gr.Markdown(visible=True), gr.Markdown(visible=False)]
 
 
-with gr.Blocks(css=CSS) as demo:
+with gr.Blocks(css=CSS, theme=gr.themes.Soft()) as demo:
 
     # Intro
     gr.Markdown("<h1><center>Reddit Agent</center></h1>")
@@ -38,7 +38,7 @@ with gr.Blocks(css=CSS) as demo:
                 fetch_tweet_btn = gr.Button(value="Fetch Tweets")
                 summarize_tweet_btn = gr.Button(value="Summarize Tweets")
         with gr.Column():
-            tweet_details = gr.TextArea(label="Results", max_lines=7)
+            tweet_details = gr.TextArea(label="Results", max_lines=8)
 
     fetch_tweet_btn.click(api.get_reddit, inputs=[query,n], outputs=[tweet_details])
 

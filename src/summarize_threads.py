@@ -42,7 +42,7 @@ def summarize_tweets():
 
         # chain.batch(split_docs)
         summary_list.append(summary)
-        thread_summary_data.append({'title': title, 'summary': summary})
+        thread_summary_data.append({'title': title, 'summary': summary[:1000]})
     
     with open("../data/summary.txt", "w", encoding="utf-8") as summary_file:
         json.dump(summary_list, summary_file)

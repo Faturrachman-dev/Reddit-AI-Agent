@@ -1,7 +1,7 @@
 import gradio as gr
-import fetch_threads as core
-import summarize_threads as core2
-import rag_prep as core3
+import fetch_threads as api
+import summarize_threads as summarize
+import rag_prep as rag
 import re
 
 CSS ="""
@@ -9,17 +9,17 @@ CSS ="""
 """
 
 def display_text_list():
-    text_list = core2.summarize_tweets()
-    res=""
+    text_list = summarize.summarize_tweets()
+    formatted_data=""
     for i, item in enumerate(text_list):
         title = f"<h3>{i+1}. {item['title']}</h3>"
         new_sum = re.sub(r'\n', ' ', item['summary'])
         summary = f"<p>{new_sum}</p>"
-        res+=title
-        res+=summary
+        formatted_data+=title
+        formatted_data+=summary
     
-    print(res)
-    return [res, gr.TextArea(visible=False), gr.Markdown(visible=True), gr.Markdown(visible=False)]
+    # print(formatted_data)
+    return [formatted_data, gr.TextArea(visible=False), gr.Markdown(visible=True), gr.Markdown(visible=False)]
 
 
 with gr.Blocks(css=CSS) as demo:
@@ -40,7 +40,7 @@ with gr.Blocks(css=CSS) as demo:
         with gr.Column():
             tweet_details = gr.TextArea(label="Results", max_lines=7)
 
-    fetch_tweet_btn.click(core.get_reddit, inputs=[query,n], outputs=[tweet_details])
+    fetch_tweet_btn.click(api.get_reddit, inputs=[query,n], outputs=[tweet_details])
 
     # Summarization Section
     gr.Markdown("<br />")
@@ -52,6 +52,6 @@ with gr.Blocks(css=CSS) as demo:
 
     # Chat with Reddit Threads
     gr.Markdown("<br />")
-    gr.ChatInterface(fn=core3.ask_questions, type="messages", examples=["hello", "hola", "merhaba"], title="Chat with Redit Threads")
+    gr.ChatInterface(fn=rag.ask_questions, type="messages", examples=["hello", "hola", "merhaba"], title="Chat with Redit Threads")
 
 demo.launch()

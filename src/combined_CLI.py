@@ -13,8 +13,7 @@ from praw import Reddit
 import requests
 import os
 import json
-import tweepy
-import json
+from datetime import datetime
 
 # RAG
 from langchain_community.document_loaders import TextLoader
@@ -25,54 +24,53 @@ from langchain import hub
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
+from prompts import Summarization_map_prompt, Summarization_refine_prompt, RAG_prompt
+
+# NEW: Add imports for Google models and TokenTextSplitter
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain.text_splitter import TokenTextSplitter
 
 load_dotenv()
 
-def get_reddits(topic,n):
+def get_reddits(topic, n):
     reddit = Reddit(
         client_id=os.environ.get("REDDIT_API_CLIENT_ID"),
         client_secret=os.environ.get("REDDIT_API_SECRET"),
         user_agent=os.environ.get("REDDIT_USER_AGENT"),
     )
 
-    res = []
-    print("Reddit Threads Title: ")
-    for submission in reddit.subreddit("all").search(query=topic, sort="relevance", limit=n):
-        print(submission.title)
-        res.append(submission)
-
-    comments = []
-    for value in res:
-        res=""
-        submission = reddit.submission(id=value)
-        res = submission.title + "\n"
+    threads = []
+    for submission in reddit.subreddit("all").search(topic, sort="relevance", limit=n):
+        print(f"[{datetime.now()}] Reddit Threads Title: {submission.title}")
         submission.comments.replace_more(limit=0)
-        # Extract All level comments using .list() function -> we can extract upro 8000 comments but a lot of it is irrevelant Data
-        # for comment in submission.comments.list():
-        #     res+=comment.body
 
-        # Only extracting first level comment so we have most important data
+        # --- MODIFIED:  Get nested comments and engagement ---
+        comments = ""
         for top_level_comment in submission.comments:
-            res+=top_level_comment.body
-        comments.append(res)
+            # Check if the comment is valid (not deleted, not removed)
+            if top_level_comment and not top_level_comment.banned_by:
+                comments += f"[{top_level_comment.score}] {top_level_comment.body}\n"  # Include score
 
-    return comments
-    
+                # Get replies (nested comments)
+                for reply in top_level_comment.replies:
+                    if reply and not reply.banned_by:
+                        comments += f"  [{reply.score}] {reply.body}\n"  # Indent replies
+        # --- END MODIFIED ---
 
-def summarize_tweets(data):
+        threads.append({
+            "title": submission.title,
+            "comments": comments,
+        })
 
-    llm = ChatGroq(model="llama3-70b-8192")
+    return threads
 
-    map_prompt_template = """You are provided with twitter thread comments. Most of the comments are discussions related to problems and solutions users are facing. Creat a concise summary of all the solutions and suggestions and key points mentioned in the discussions. \\n ===Comments=== \\n {text}"""
-    map_prompt = PromptTemplate(template=map_prompt_template, input_variables=["text"])
 
-    combine_prompt_template = """
-    The following is a set of summaries:
-    {text}
-    Take these and distill it into a final, consolidated summary
-    of the main themes.
-    """
-    combine_prompt = PromptTemplate(template=combine_prompt_template, input_variables=["text"])
+def summarize_threads(data):
+    # NEW: Use Gemini 1.5 Flash
+    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
+
+    map_prompt = PromptTemplate(template=Summarization_map_prompt, input_variables=["text"])
+    combine_prompt = PromptTemplate(template=Summarization_refine_prompt, input_variables=["text"])
 
     map_reduce_chain = load_summarize_chain(
         llm,
@@ -83,75 +81,74 @@ def summarize_tweets(data):
     )
 
     res = []
-    text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=2500, chunk_overlap=125)
-    for val in data:
-        print(f"Lenght of Reddit Thread",len(val.split()))
-        split_docs = text_splitter.create_documents([val])
+    # NEW: Use TokenTextSplitter
+    text_splitter = TokenTextSplitter(chunk_size=1000, chunk_overlap=100)  # Adjust as needed
+
+    for thread in data:
+        print(f"[{datetime.now()}] Summarizing thread: {thread['title']}")
+        split_docs = text_splitter.split_text(thread['comments'])  # Split text, not Documents
+        split_docs = [Document(page_content=t) for t in split_docs] # Convert to List of Document
         summary = map_reduce_chain.invoke(split_docs)
         res.append(summary["output_text"])
 
-    # print(res)
     return res
 
+
 def ask_questions():
+    # NEW: Use Gemini 1.5 Flash and Google embeddings
+    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
 
-    llm = ChatGroq(model="llama3-70b-8192")
-
-    loader = TextLoader('summary.txt')
+    loader = TextLoader('../data/summary.txt')
     documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    # NEW: Use TokenTextSplitter
+    text_splitter = TokenTextSplitter(chunk_size=1000, chunk_overlap=100) # Adjust as needed
     docs = text_splitter.split_documents(documents)
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    docs_text = [doc.page_content for doc in docs]
-    doc_embeddings = embeddings.embed_documents(docs_text)
-    vectorstore = FAISS.from_documents(docs, embeddings)
 
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-    RAG_PROMPT = """
-    You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know.
-         
-    Question: {query} 
-    
-    Context: {context} 
-    
-    Answer:
-    """
-    prompt = PromptTemplate(template=RAG_PROMPT, input_variables=["query","context"])
+    prompt = PromptTemplate(template=RAG_prompt, input_variables=["query", "context"])
 
     while True:
         query = input("You: ")
-        if(query.lower() in ['exit','quit','stop','break']):
+        if query.lower() in ['exit', 'quit', 'stop', 'break']:
             break
-        results = vectorstore.similarity_search(query,k=3)
+
+        # Create vectorstore on-the-fly for each query (for simplicity)
+        vectorstore = FAISS.from_documents(docs, embeddings)  # Create vectorstore here
+        results = vectorstore.similarity_search(query, k=3)
         context = format_docs(results)
         chain = prompt | llm | StrOutputParser()
-        results = chain.invoke({'query':query,'context':context})
-        print(f"AI: ",results)
-    
-    return
+        results = chain.invoke({'query': query, 'context': context})
+        print(f"[{datetime.now()}] AI: {results}")
+
 
 def main():
     topic = input("Please enter topic you want to know about!! ")
     n = int(input("Enter no of tweets you want to capture "))
 
-    print("Fetching Reddits Threads please wait...")
-    documents = get_reddits(topic,n)
-    print(f"Here are the documents retreived: ",documents)
+    print(f"[{datetime.now()}] Fetching Reddit Threads please wait...")
+    threads = get_reddits(topic, n)
 
-    print("Please wait we are summarizing all the Redit Threads...")
-    summary = summarize_tweets(documents)
-    print('='*30)
-    print(f"Here is the summary of threads: ",summary)
-    # Save summary to a file named "summary.txt"
-    with open("summary.txt", "w", encoding="utf-8") as summary_file:
-        json.dump(summary, summary_file)
-    print("Summary and documents saved to files.")
-    
+    os.makedirs("../data", exist_ok=True)
+
+    with open("../data/reddit_threads_data.json", "w", encoding="utf-8") as f:
+        json.dump(threads, f, indent=4)
+    print(f"[{datetime.now()}] Reddit threads saved to data/reddit_threads_data.json")
+
+    print(f"[{datetime.now()}] Please wait we are summarizing all the Reddit Threads...")
+    summary = summarize_threads(threads)
+    print('=' * 30)
+    print(f"[{datetime.now()}] Here is the summary of threads: ", summary)
+
+    with open("../data/summary.txt", "w", encoding="utf-8") as summary_file:
+        json.dump(summary, summary_file, indent=4)
+    print(f"[{datetime.now()}] Summary saved to data/summary.txt")
+
     user_prompt = input('Do you want to ask questions on summary: ')
-    if(user_prompt.lower()=='yes'):
-        print("Please wait we are processing summary so we can perform RAG on it...")
+    if user_prompt.lower() == 'yes':
+        print(f"[{datetime.now()}] Please wait we are processing summary so we can perform RAG on it...")
         ask_questions()
     else:
         print('Thanks for your time, GoodBye!!')

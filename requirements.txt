@@ -10,3 +10,7 @@ praw
 sentence-transformers
 torch
 transformers
+tweepy
+groq
+openai
+tiktoken

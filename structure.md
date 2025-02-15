@@ -1,0 +1,34 @@
+```
+└── 📁Reddit-AI-Agent
+    └── 📁data
+        └── reddit_threads_data.txt
+        └── summary.txt
+    └── 📁index
+        └── 📁RAG_index
+            └── index.faiss
+            └── index.pkl
+    └── 📁src
+        └── 📁__pycache__
+            └── fetch_threads.cpython-311.pyc
+            └── fetch_threads.cpython-312.pyc
+            └── prompts.cpython-311.pyc
+            └── summarize_threads.cpython-312.pyc
+            └── utils.cpython-311.pyc
+        └── combined_CLI.py
+        └── 📁data
+            └── reddit_threads_data.json
+            └── summary.txt
+        └── fetch_threads.py
+        └── prompts.py
+        └── rag_prep.py
+        └── summarize_threads.py
+        └── summary.txt
+        └── UI.py
+        └── utils.py
+    └── .env
+    └── .gitignore
+    └── python_programming.png
+    └── Readme.md
+    └── requirements.txt
+    └── structure.md
+```
